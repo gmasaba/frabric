@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>50 Layout Patterns Generator & Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+    <style>
+        :root {
+            --bg-color: #f5f7fb;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --primary-color: #323c4b;
+            --border-color: #cbd5e1;
+            --grid-size: 60px;
+            --mini-grid-size: 25px;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* --- Main Page View --- */
+        #mainView { padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        header { text-align: center; margin-bottom: 40px; }
+        .upload-zone {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            max-width: 650px; 
+            margin: 0 auto 30px auto;
+            text-align: center;
+            border: 2px dashed var(--border-color);
+        }
+        .upload-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .patterns-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .pattern-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .pattern-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+        .pattern-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .pattern-title { margin: 0; font-size: 1.1rem; color: var(--primary-color); }
+        .pattern-preview {
+            background: #eeeeee;
+            height: 240px;
+            display: grid;
+            grid-template-columns: repeat(6, var(--grid-size));
+            grid-template-rows: repeat(4, var(--grid-size));
+            justify-content: center;
+            align-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .tile {
+            width: var(--grid-size);
+            height: var(--grid-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1e293b;
+            background-color: #ffffff;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            outline: 1px solid rgba(0,0,0,0.1);
+        }
+        .pattern-info { padding: 20px; font-size: 0.9rem; line-height: 1.5; flex-grow: 1; background: #ffffff; }
+
+        /* --- Transformation Classes --- */
+        .n { transform: none; }
+        .r90 { transform: rotate(90deg); }
+        .r180 { transform: rotate(180deg); }
+        .r270 { transform: rotate(270deg); }
+        .mx { transform: scaleX(-1); }
+        .my { transform: scaleY(-1); }
+        .mxy { transform: scale(-1); }
+        .mx90 { transform: scaleX(-1) rotate(90deg); }
+        .my90 { transform: scaleY(-1) rotate(90deg); }
+
+        /* --- Editor View --- */
+        #editorView {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #ffffff;
+            z-index: 1000;
+        }
+        .editor-container { display: flex; width: 100%; height: 100%; }
+        
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+        }
+        .workspace-header {
+            background: #ffffff;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            gap: 15px;
+        }
+        
+        .btn-outline {
+            background: transparent; border: 1px solid #cbd5e1; padding: 8px;
+            border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            color: var(--text-color); transition: all 0.15s ease;
+        }
+        .btn-outline:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .btn-outline svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+        
+        .btn-outline.active-toggle {
+            background: #e2e8f0;
+            border-color: #64748b;
+            color: #0f172a;
+        }
+
+        .preview-area {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #f1f5f9;
+            touch-action: none;
+        }
+        .tessellation-output {
+            transform-origin: center center;
+            display: block;
+            background: #e2e8f0;
+        }
+
+        .btn-reset-zoom-floating {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .btn-hd-floating {
+            position: absolute;
+            top: 60px;
+            right: 15px;
+            z-index: 20;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 38px;
+            height: 38px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        /* Tools Panel */
+        .tools-panel {
+            width: 480px;
+            min-width: 480px;
+            background: #ffffff;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        .panel-resizer {
+            display: none;
+        }
+
+        @media (min-width: 992px) {
+            .panel-resizer {
+                display: block;
+                position: absolute;
+                top: 0; left: -4px; width: 8px; height: 100%;
+                cursor: col-resize;
+                z-index: 100;
+                background: transparent;
+                transition: background 0.2s;
+            }
+            .panel-resizer:hover, .panel-resizer.is-resizing {
+                background: #cbd5e1;
+            }
+        }
+
+        .panel-content { flex: 1; overflow-y: auto; padding: 20px; }
+        .desktop-tab-toggle { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+        .desktop-tab-btn { flex: 1; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-weight: 600; color: #64748b; }
+        .desktop-tab-btn.active { background: #ffffff; border-color: var(--primary-color); color: var(--primary-color); }
+
+        .tool-group { margin-bottom: 20px; display: none; }
+        .tool-group.active-tab { display: block; }
+        .tool-group h4 { margin-top: 0; margin-bottom: 15px; color: var(--primary-color); }
+        .tool-row { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+        .tool-row label { font-size: 0.85rem; width: 100px; color: #64748b; flex-shrink: 0; }
+        .tool-row input[type="range"] { flex: 1; }
+        .num-input { width: 60px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
+        select { padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.95rem; width: 100%; background: #ffffff; }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            user-select: none;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary-color);
+            cursor: pointer;
+        }
+        .checkbox-row span {
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .chain-linker-row {
+            display: flex; justify-content: flex-end; margin-top: -15px; margin-bottom: 8px; padding-right: 20px;
+        }
+        .btn-chain-lock {
+            background: transparent; border: none; width: 28px; height: 28px; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b !important; transition: all 0.15s;
+        }
+        .btn-chain-lock:hover { background: #e2e8f0; color: #1e293b; }
+        .btn-chain-lock.active { background: transparent; border: none; color: #0369a1 !important; }
+        .btn-chain-lock svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.5; }
+
+        /* Studio Panel Layout Grid */
+        .studio-layout-container {
+            display: grid;
+            grid-template-columns: 80px 1fr 120px;
+            gap: 15px;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .studio-left-col { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+        .studio-center-col { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
+        .studio-right-col { display: flex; flex-direction: column; gap: 12px; font-size: 0.8rem; color: #64748b; justify-content: center; }
+
+        .canvas-container {
+            position: relative; width: 100%; height: auto; aspect-ratio: 1/1; 
+            border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #fff;
+        }
+        #tileCanvas { width: 100%; height: 100%; cursor: crosshair; touch-action: none; aspect-ratio: 1/1; display: block; }
+        #tileGridOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+        /* Outline Grid Icons */
+        .tools-grid-3x2 {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+        }
+        .tool-btn-outline {
+            height: 36px; background: transparent; border: 1px solid #cbd5e1; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; color: #475569;
+            transition: all 0.2s ease;
+        }
+        .tool-btn-outline:hover:not(:disabled), .tool-btn-outline.active:not(:disabled) { border-color: var(--text-color); background: #f1f5f9; color: #0f172a; }
+        .tool-btn-outline svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+        /* Line Size Horizontal */
+        .line-size-horiz { display: flex; gap: 4px; width: 100%; margin-top: 5px; }
+        .line-dot-opt { flex: 1; height: 28px; border: 1px solid #cbd5e1; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .line-dot-opt.active { background: #1e293b; border-color: #1e293b; }
+        .line-dot-opt.active .dot-shape { background: #fff; }
+        .dot-shape { background: #475569; border-radius: 50%; }
+
+        /* Color Controls with Checkboxes */
+        .color-picker-wrapper { display: flex; flex-direction: column; gap: 4px; transition: opacity 0.2s ease; }
+        .color-picker-circle-row { display: flex; align-items: center; gap: 6px; }
+        .circle-color-picker {
+            -webkit-appearance: none; border: 1px solid #cbd5e1; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; background: none; overflow: hidden; padding: 0;
+        }
+        .circle-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+        .circle-color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
+        
+        /* Checkbox Styles */
+        .color-checkbox {
+            cursor: pointer; width: 16px; height: 16px; accent-color: var(--text-color); margin: 0;
+        }
+        
+        .color-name-text { display: inline-block; }
+
+        .canvas-actions-row { display: flex; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; }
+
+        .mini-preview-box { background: #f1f5f9; padding: 10px; border-radius: 8px; margin-top: 10px; display: flex; flex-direction: column; align-items: center; }
+        .mini-preview-grid { display: grid; grid-template-columns: repeat(6, var(--mini-grid-size)); grid-template-rows: repeat(4, var(--mini-grid-size)); background: #e2e8f0; }
+        .mini-tile { width: var(--mini-grid-size); height: var(--mini-grid-size); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; color: #323c4b; background: #ffffff; outline: 1px solid rgba(0,0,0,0.1); }
+
+        .mobile-nav-bar { display: none; }
+        
+        #headerLayoutSelectWrapper { display: flex; flex: 1; justify-content: center; padding: 0 10px; }
+        #headerActionButtonsWrapper { display: flex; gap: 8px; align-items: center; }
+
+        /* Modals Common Style */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center;
+        }
+        .modal-body-box { 
+            background: white; padding: 30px; border-radius: 16px; 
+            max-width: 500px; width: 90%; text-align: left; position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+        .modal-close-btn {
+            position: absolute; top: 15px; right: 15px; background: transparent; border: none;
+            cursor: pointer; color: #64748b; padding: 5px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: background 0.15s;
+        }
+        .modal-close-btn:hover { background: #f1f5f9; color: #1e293b; }
+        .modal-close-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+        /* Save Modal Specific Style */
+        .export-form-group { margin-bottom: 15px; }
+        .export-form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 6px; }
+        .export-input-row { display: flex; gap: 10px; align-items: center; }
+
+        /* --- Crop Modal Layout Optimized --- */
+        .crop-box { 
+            background: white; padding: 30px; border-radius: 16px; 
+            max-width: 1400px; width: 95%; text-align: center; position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+        .crop-preview-container { 
+            height: 700px; max-height: 70vh; margin: 15px 0; background: #f8fafc; 
+            position: relative; overflow: hidden; border-radius: 8px; border: 1px solid #e2e8f0;
+        }
+        #cropImageTag { max-width: 100%; display: block; }
+
+        /* ==========================================================================
+           --- MOBILE & TABLET RESPONSIVE STYLE (max-width: 991px) ---
+           ========================================================================= */
+        @media (max-width: 991px) {
+            body { overflow: hidden; position: fixed; width: 100%; height: 100%; }
+            #mainView { height: 100vh; }
+            .patterns-container { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+            .editor-container { flex-direction: column; height: 100vh; width: 100vw; }
+            
+            .workspace { height: calc(100% - 60px); flex: 1; width: 100%; padding-bottom: 250px; }
+            .workspace-header { padding: 8px 12px; gap: 8px; }
+            .workspace-header span { display: none; }
+            
+            #headerLayoutSelectWrapper { display: flex !important; visibility: visible !important; width: auto; max-width: 55%; }
+            #headerLayoutSelectWrapper select { height: 36px; padding: 4px 8px; font-size: 0.85rem; border-radius: 6px; }
+
+            /* Bottom Panel System */
+            .tools-panel {
+                width: 100% !important; min-width: 100% !important;
+                height: auto !important; max-height: 290px;
+                border-left: none; border-top: 1px solid #e2e8f0;
+                position: fixed; bottom: 60px; left: 0; z-index: 1001;
+                background: #ffffff; transform: translateY(0); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .tools-panel.collapsed { transform: translateY(100%) !important; }
+
+            .panel-content { padding: 8px 14px; overflow-y: auto; height: 100%; }
+            
+            #editPatternTitle, #editPatternDesc, .mini-preview-box, .desktop-tab-toggle, .tool-group h4, .tools-panel hr, #desktopPanelRulesZone { display: none !important; }
+            .chain-linker-row { display: flex !important; justify-content: flex-end; margin-top: -15px; margin-bottom: 4px; width: 100%; }
+            .chain-linker-row .btn-chain-lock { width: 20px !important; height: 20px !important; }
+            .chain-linker-row .btn-chain-lock svg { width: 16px !important; height: 16px !important; }
+
+            .tool-group { margin-bottom: 0; padding: 4px 0; }
+            .tool-group.active-tab { display: block !important; }
+
+            #tabGridExpansion { padding: 4px 5px; }
+            .tool-group .tool-row { margin-bottom: 14px; }
+
+            .studio-layout-container {
+                grid-template-columns: 55px 1fr 65px; gap: 8px; margin-top: 2px; width: 100%; align-items: center; justify-content: center;
+            }
+            
+            .studio-center-col { display: flex; justify-content: center; align-items: center; width: 100%; }
+            .canvas-container { width: 140px; height: 140px; border-radius: 6px; margin: 0 auto; }
+            
+            .tools-grid-3x2 { gap: 4px; }
+            .tool-btn-outline { height: 28px; padding: 2px; }
+            .tool-btn-outline svg { width: 14px; height: 14px; }
+            .line-size-horiz { margin-top: 3px; gap: 2px; }
+            .line-dot-opt { height: 18px; }
+            
+            .studio-right-col { gap: 4px; font-size: 0.7rem; justify-content: center; }
+            .color-picker-wrapper { gap: 1px; }
+            .circle-color-picker { width: 20px; height: 20px; }
+            .color-checkbox { width: 13px; height: 13px; }
+            
+            .canvas-actions-row { margin-top: 6px; gap: 4px; }
+            .canvas-actions-row .btn-outline { padding: 4px; height: 28px; flex: 1; }
+            .canvas-actions-row .btn-outline svg { width: 14px; height: 14px; }
+
+            /* Navigation Bar Bottom */
+            .mobile-nav-bar {
+                display: flex; position: fixed; bottom: 0; left: 0; width: 100vw; height: 60px;
+                background: #f8fafc; border-top: 1px solid #e2e8f0; z-index: 1002;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+            .nav-tab-item {
+                flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+                background: transparent; border: none; cursor: pointer; color: #64748b; font-size: 0.75rem; font-weight: 500; gap: 2px;
+            }
+            .nav-tab-item svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+            .nav-tab-item.active { color: var(--text-color); background: #ffffff; font-weight: 600; }
+
+            /* Crop Box Mobile override */
+            .crop-box { padding: 15px; }
+            .crop-preview-container { height: 300px; margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="mainView">
+    <header>
+        <h1>Layout Patterns 50 Principles</h1>
+    </header>
+
+   <div class="upload-zone">
+        <small style="color: #64748b; font-size: 0.95rem;">Click Layout Card to Enter Edit Mode</small>
+        <div class="upload-actions">
+            <button class="btn-outline" id="btnClearToP" style="font-size: 0.85rem; padding: 6px 12px;">Reset Image to Default</button>
+        </div>
+    </div>
+
+    <div class="patterns-container" id="patternsWrapper"></div>
+</div>
+
+<div id="editorView">
+    <div class="editor-container">
+        
+        <div class="workspace">
+            <div class="workspace-header">
+                <button class="btn-outline" id="btnBack" title="Back to Main">
+                    <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+
+                <div id="headerLayoutSelectWrapper">
+                    <select id="layoutSelect"></select>
+                </div>
+
+                <div id="headerActionButtonsWrapper">
+                    <button class="btn-outline" id="btnOpenSaveModal" title="Save Pattern Image" style="color: #2563eb;">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="preview-area" id="previewArea">
+                <button class="btn-outline btn-reset-zoom-floating" id="btnResetZoom" title="Reset View Zoom/Pan">
+                    <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                </button>
+                <button class="btn-outline btn-hd-floating" id="btnHDToggle" title="Toggle HD Quality Preview">
+                    HD
+                </button>
+                <canvas class="tessellation-output" id="tessellationOutput"></canvas>
+            </div>
+        </div>
+
+        <div class="tools-panel" id="toolsPanel">
+            <div id="panelResizer" class="panel-resizer"></div>
+            <div class="panel-content">
+                <div style="margin-bottom: 15px;" id="desktopPanelRulesZone">
+                    <label style="font-size:0.85rem; font-weight:600; color:var(--primary-color); display:block; margin-bottom:6px;">Layout Rules</label>
+                    <div id="desktopSelectAnchor"></div>
+                </div>
+
+                <h3 id="editPatternTitle" style="color:var(--primary-color); margin-top:0; margin-bottom: 4px; display:none;">Layout Configuration</h3>
+                <p id="editPatternDesc" style="font-size:0.85rem; color:#64748b; margin-bottom: 10px;"></p>
+                
+                <div class="mini-preview-box">
+                    <div class="mini-preview-grid" id="miniPreviewGrid"></div>
+                </div>
+
+                <div class="desktop-tab-toggle">
+                    <button class="desktop-tab-btn active" data-target="tabGridExpansion">Grid Setting</button>
+                    <button class="desktop-tab-btn" data-target="tabTileStudio">Tile Studio</button>
+                </div>
+
+                <div class="tool-group active-tab" id="tabGridExpansion">
+                    <h4>Grid Expansion</h4>
+                    
+                    <div class="tool-row">
+                        <label>Columns</label>
+                        <input type="range" id="gridCols" value="8" min="1" max="30">
+                        <input type="number" id="gridColsNum" class="num-input" value="8" min="1" max="30">
+                    </div>
+                    
+                    <div class="chain-linker-row">
+                        <button class="btn-chain-lock active" id="btnChainLock" title="Link Columns & Rows Ratio">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="tool-row">
+                        <label>Rows</label>
+                        <input type="range" id="gridRows" value="6" min="1" max="30">
+                        <input type="number" id="gridRowsNum" class="num-input" value="6" min="1" max="30">
+                    </div>
+
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="chkShowGrid" checked>
+                        <span>Show grid</span>
+                    </label>
+
+                     <label class="checkbox-row">
+                        <input type="checkbox" id="chkShowSubGrid">
+                        <span>Show sub-grid</span>
+                    </label>
+
+                    <div class="tool-row">
+                        <label>Sub division</label>
+                        <input type="range" id="subGridDiv" value="10" min="2" max="100">
+                        <input type="number" id="subGridDivNum" class="num-input" value="10" min="2" max="100">
+                    </div>
+                </div>
+
+                <div class="tool-group" id="tabTileStudio">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px; background:#f8fafc; padding:4px 8px; border-radius:6px; border:1px solid #e2e8f0; font-size:0.8rem;">
+                        <label class="checkbox-row" style="margin:0; gap:6px;">
+                            <input type="checkbox" id="chkPixelate" style="width:14px; height:14px;">
+                            <span style="font-size:0.8rem;">Pixelate Mode</span>
+                        </label>
+                        <div id="pixelateModeRow" style="display: none; align-items:center; gap:4px;">
+                            <select id="pixelateModeSelect" style="padding:2px 6px; font-size:0.75rem; width:auto; border-radius:4px; height:26px;">
+                                <option value="frequent" selected>Most Frequent</option>
+                                <option value="average">Average</option>
+                                <option value="darkest">Darkest</option>
+                                <option value="lightest">Lightest</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tool-row" style="margin-bottom:8px;">
+                        <input type="file" id="tileImageUpload" accept="image/*" style="font-size: 0.8rem; width:100%;">
+                    </div>
+                    
+                    <div class="studio-layout-container">
+                        
+                        <div class="studio-left-col">
+                            <div class="tools-grid-3x2" id="toolsGrid">
+                                <button class="tool-btn-outline active" data-tool="brush" title="Free Brush">
+                                    <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                </button>
+                                <button class="tool-btn-outline" data-tool="eraser" title="Erase">
+                                    <svg viewBox="0 0 24 24"><path d="M18.85 3.85a2.5 2.5 0 0 0-3.54 0L3.85 15.31a2.5 2.5 0 0 0 0 3.54l3.3 3.3a2.5 2.5 0 0 0 3.54 0L22.15 10.7a2.5 2.5 0 0 0 0-3.54l-3.3-3.31zM9.27 20.73L4.56 16.02l8.2-8.2 4.71 4.71-8.2 8.2z"/></svg>
+                                </button>
+                                <button class="tool-btn-outline" data-tool="line" title="Line">
+                                    <svg viewBox="0 0 24 24"><path d="M5 19L19 5M5 5h.01M19 19h.01"/></svg>
+                                </button>
+                                <button class="tool-btn-outline" data-tool="rect" title="Rectangle">
+                                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                </button>
+                                <button class="tool-btn-outline" data-tool="circle" title="Circle">
+                                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+                                </button>
+                                <button class="tool-btn-outline" data-tool="triangle" title="Triangle">
+                                    <svg viewBox="0 0 24 24"><path d="M12 3L2 20h20L12 3z"/></svg>
+                                </button>
+                                <button class="tool-btn-outline" id="btnBucketTool" data-tool="fill" title="Bucket">
+                                    <svg viewBox="0 0 24 24"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2a2 2 0 0 0 2.8 0L19 11z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4z"/></svg>
+                                </button>
+                            </div>
+
+                            <div class="line-size-horiz" id="dotSizeContainer">
+                                <div class="line-dot-opt" data-value="2" title="Thin"><div class="dot-shape" style="width:3px; height:3px;"></div></div>
+                                <div class="line-dot-opt active" data-value="6" title="Med"><div class="dot-shape" style="width:6px; height:6px;"></div></div>
+                                <div class="line-dot-opt" data-value="12" title="Thick"><div class="dot-shape" style="width:10px; height:10px;"></div></div>
+                            </div>
+                        </div>
+
+                        <div class="studio-center-col">
+                            <div class="canvas-container">
+                                <canvas id="tileCanvas" width="240" height="240"></canvas>
+                                <canvas id="tileGridOverlay" width="240" height="240"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="studio-right-col">
+                            <div class="color-picker-wrapper">
+                                <span class="color-name-text" data-desktop="Stroke" data-mobile="Stroke">Stroke</span>
+                                <div class="color-picker-circle-row">
+                                    <input type="checkbox" id="chkUseStroke" class="color-checkbox" checked>
+                                    <input type="color" id="strokeColor" class="circle-color-picker" value="#1e293b">
+                                </div>
+                            </div>
+                            <div class="color-picker-wrapper">
+                                <span class="color-name-text" data-desktop="Inner Fill" data-mobile="Fill">Inner Fill</span>
+                                <div class="color-picker-circle-row">
+                                    <input type="checkbox" id="chkUseFill" class="color-checkbox" checked>
+                                    <input type="color" id="fillColor" class="circle-color-picker" value="#7AA1E0">
+                                </div>
+                            </div>
+                            <div class="color-picker-wrapper">
+                                <span class="color-name-text" data-desktop="Bucket Color" data-mobile="Bucket">Bucket Color</span>
+                                <input type="color" id="bucketColor" class="circle-color-picker" value="#6D79AB">
+                            </div>
+                            <div class="color-picker-wrapper">
+                                <span class="color-name-text" data-desktop="Canvas Bg" data-mobile="Bg">Canvas Bg</span>
+                                <input type="color" id="bgColor" class="circle-color-picker" value="#ffffff">
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="canvas-actions-row">
+                        <button class="btn-outline" id="btnUndo" title="Undo">
+                            <svg viewBox="0 0 24 24"><path d="M3 7v6h6M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                        </button>
+                        <button class="btn-outline" id="btnRedo" title="Redo">
+                            <svg viewBox="0 0 24 24"><path d="M21 7v6h-6M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 4"/></svg>
+                        </button>
+                        <button class="btn-outline" id="btnClearPaint" title="Clear Paint">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                <path d="M3 3v5h5"/>
+                            </svg>
+                        </button>
+                        <button class="btn-outline" id="btnClearCanvas" title="Clear All">
+                            <svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                        <button class="btn-outline" id="btnResetToP" title="Default P">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 4h7a4 4 0 0 1 0 8H6V4z"/>
+                                <path d="M6 12v8"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <div class="mobile-nav-bar">
+            <button class="nav-tab-item active" data-target="tabGridExpansion">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+                Grid Setting
+            </button>
+            <button class="nav-tab-item" data-target="tabTileStudio">
+                <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Tile Studio
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal Save Image -->
+<div id="saveImageModal" class="modal-overlay">
+    <div class="modal-body-box">
+        <button class="modal-close-btn" id="btnSaveModalClose" title="Close">
+            <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <h3 style="margin-top:0; color: var(--primary-color);">Export Image Settings</h3>
+        
+        <div class="export-form-group">
+            <label>PPI Resolution </label>
+            <select id="exportPPI">
+                <option value="72">72 PPI (Screen/Web)</option>
+                <option value="150">150 PPI (Medium Quality Print)</option>
+                <option value="300" selected>300 PPI (High Quality Print)</option>
+            </select>
+        </div>
+
+        <div class="export-form-group">
+            <label>Dimensions Unit</label>
+            <select id="exportUnit">
+                <option value="px" selected>Pixels (px)</option>
+                <option value="cm">Centimeters (cm)</option>
+                <option value="inch">Inches (inch)</option>
+            </select>
+        </div>
+
+        <div class="export-form-group">
+            <label>Image Size</label>
+            <div class="export-input-row">
+                <div style="flex:1;">
+                    <small style="color:#64748b;">Width:</small>
+                    <input type="number" id="exportWidth" class="num-input" style="width:100%; height:38px;" step="any">
+                </div>
+                <div style="flex:1;">
+                    <small style="color:#64748b;">Height:</small>
+                    <input type="number" id="exportHeight" class="num-input" style="width:100%; height:38px;" step="any">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; font-size:0.8rem; color:#64748b; background:#f1f5f9; padding:10px; border-radius:6px;">
+            Output Resolution: <strong id="calcResolutionText">0 x 0 px</strong>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+            <button class="btn-outline" id="btnCancelSave">Cancel</button>
+            <button class="btn-outline" id="btnConfirmSaveImage" style="background: var(--primary-color); color: white;">Download Image</button>
+        </div>
+    </div>
+</div>
+
+<div id="cropModal" class="modal-overlay">
+    <div class="crop-box">
+        <button class="modal-close-btn" id="btnModalXClose" title="Close Without Saving">
+            <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <h3>Adjust Image Area Selection</h3>
+        <p style="font-size:0.85rem; color:#64748b;">An uploaded image asset is detected. Adjust the box to select and scale your square section (Use Mouse Scroll to Zoom / Drag to Pan).</p>
+
+        <!-- controls for Rotate and Flip -->
+        <div style="display:flex; gap:10px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap;">
+            <button class="btn-outline" id="btnRotateLeft" title="Rotate Left 90°" style="font-size: 0.85rem; gap: 4px; padding: 6px 12px;">
+                <svg viewBox="0 0 24 24" style="width:18px; height:18px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+             </button>
+            <button class="btn-outline" id="btnRotateRight" title="Rotate Right 90°" style="font-size: 0.85rem; gap: 4px; padding: 6px 12px;">
+                <svg viewBox="0 0 24 24" style="width:18px; height:18px;"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+            <button class="btn-outline" id="btnFlipH" title="Flip Horizontal" style="font-size: 0.85rem; gap: 4px; padding: 6px 12px;">
+                <svg viewBox="0 0 24 24" style="width:18px; height:18px;"><path d="M12 2v20M4 18l6-6-6-6v12zm16 0l-6-6 6-6v12z"/></svg>
+            </button>
+            <button class="btn-outline" id="btnFlipV" title="Flip Vertical" style="font-size: 0.85rem; gap: 4px; padding: 6px 12px;">
+                <svg viewBox="0 0 24 24" style="width:18px; height:18px;"><path d="M2 12h20M18 4l-6 6-6-6h12zm0 16l-6-6-6 6h12z"/></svg>
+            </button>
+        </div>
+
+        <div class="crop-preview-container">
+            <img id="cropImageTag" src="" alt="preview">
+        </div>
+        <div style="display:flex; gap:10px; justify-content: center;">
+            <button class="btn-outline" id="btnCropSquare" style="background:var(--primary-color); color:white;">Confirm Square Crop (1:1)</button>
+            <button class="btn-outline" id="btnCropNone">Keep Original Aspect (Stretch/Fit)</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script>
+    const patternsData = [
+        { id: 1, title: "1. Regular Grid (Pure Translation)", desc: "Simple row-and-column alignment with no rotations or reflections. Patterns expand by repeating seamlessly.", matrix: ["n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n","n"] },
+        { id: 2, title: "2. Horizontal Mirror (Reflective Alternation)", desc: "Alternating X-axis mirrors horizontally to build symmetry along horizontal structures.", matrix: ["n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx"] },
+        { id: 3, title: "3. Vertical Mirror (Up-Down Alternation)", desc: "Alternating Y-axis mirrors vertically, offering flawless continuous flows from top to bottom.", matrix: ["n","n","n","n","n","n","my","my","my","my","my","my","n","n","n","n","n","n","my","my","my","my","my","my"] },
+        { id: 4, title: "4. Checkerboard Mirror (Grid Reflection)", desc: "Swaps both X and Y axis reflections diagonally like standard checkerboards or tiling layouts.", matrix: ["n","mx","n","mx","n","mx","my","mxy","my","mxy","my","mxy","n","mx","n","mx","n","mx","my","mxy","my","mxy","my","mxy"] },
+        { id: 5, title: "5. Pinwheel 90 (Radial Rotation)", desc: "Rotates clockwise by 90 degrees sequentially (0, 90, 180, 270) creating a central focal core spinning outward.", matrix: ["n","r90","r180","r270","n","r90","r90","r180","r270","n","r90","r180","r180","r270","n","r90","r180","r270","r270","n","r90","r180","r270","n"] },
+        { id: 6, title: "6. Alternating 180 (Inverted Row-Spin)", desc: "Alternating rows flip entirely upside down at 180 degrees, allowing complex boundaries to interlock tightly.", matrix: ["n","n","n","n","n","n","r180","r180","r180","r180","r180","r180","n","n","n","n","n","n","r180","r180","r180","r180","r180","r180"] },
+        { id: 7, title: "7. Brick Wall Slide (Offset 180 Rotation)", desc: "Offsets successive horizontal bricks combined with a 180-degree flip to add dynamic staggered depth.", matrix: ["n","r180","n","r180","n","r180","r180","n","r180","n","r180","n","n","r180","n","r180","n","r180","r180","n","r180","n","r180","n"] },
+        { id: 8, title: "8. Herringbone Rotate (Perpendicular Twill)", desc: "Swaps 90-degree rotations in pairs to construct iconic woven herringbone styles spinning infinitely.", matrix: ["n","r90","n","r90","n","r90","n","r90","n","r90","n","r90","r90","n","r90","n","r90","n","r90","n","r90","n","r90","n"] },
+        { id: 9, title: "9. Cross Mirror (4-Directional Hub)", desc: "Utilizes crossed mirrored matrices inside 2x2 grids to map quad-balanced nodes.", matrix: ["n","mx","my","mxy","n","mx","my","mxy","n","mx","my","mxy","n","mx","my","mxy","n","mx","my","mxy","n","mx","my","mxy"] },
+        { id: 10, title: "10. Basketweave Layout (Intertwined Pairs)", desc: "Groups twin upright tiles abutting twin horizontal units to emulate classic wicker basket arrays.", matrix: ["n","n","r90","r90","n","n","n","n","r90","r90","n","n","r90","r90","n","n","r90","r90","r90","r90","n","n","r90","r90"] },
+        { id: 11, title: "11. Windmill Spin", desc: "Alternates between clockwise and counter-clockwise rotations across diagonal axes.", matrix: ["n","r90","r270","n","n","r90","r270","n","n","r90","r270","n","n","r90","r270","n","n","r90","r270","n","n","r90","r270","n"] },
+        { id: 12, title: "12. Double Mirror Horizontal", desc: "Mirrors horizontally on every two blocks, lengthening the horizontal rhythm of designs.", matrix: ["n","n","mx","mx","n","n","n","n","mx","mx","n","n","n","n","mx","mx","n","n","n","n","mx","mx","n","n"] },
+        { id: 13, title: "13. Double Mirror Vertical", desc: "Mirrors vertically on every two blocks, widening the wave rhythm across vertical bounds.", matrix: ["n","mx","n","mx","n","mx","my","mxy","my","mxy","my","mxy","my","mxy","my","mxy","my","mxy","n","mx","n","mx","n","mx"] },
+        { id: 14, title: "14. Diagonal Glide", desc: "Combines 90-degree rotations with an X-axis flip for crisp diagonal glide patterns.", matrix: ["n","mx90","n","mx90","n","mx90","mx90","n","mx90","n","mx90","n","n","mx90","n","mx90","n","mx90","mx90","n","mx90","n","mx90","n"] },
+        { id: 15, title: "15. Quad-Center Rotation", desc: "Sets up symmetric rotation vertices for every 4 tiles, drawing shapes inward to a unified node.", matrix: ["n","mx","mxy","my","n","mx","my","mxy","n","mx","mxy","my","n","mx","my","mxy","n","mx","mxy","my","n","mx","my","mxy"] },
+        { id: 16, title: "16. Step-Down Reflection", desc: "Reflects while descending down grid tiers, mimicking stairs casting shadows downward.", matrix: ["n","n","n","mx","mx","mx","my","my","my","mxy","mxy","mxy","n","n","n","mx","mx","mx","my","my","my","mxy","mxy","mxy"] },
+        { id: 17, title: "17. Centered Kaleidoscope", desc: "Emulates kaleidoscope glass view lines by drawing all 2x2 elements toward a shared origin point.", matrix: ["mxy","my","mxy","my","mxy","my","mx","n","mx","n","mx","n","mxy","my","mxy","my","mxy","my","mx","n","mx","n","mx","n"] },
+        { id: 18, title: "18. Vertical Stripe Spin", desc: "Splits grid lanes vertically, locking one lane straight while spinning the next by 180 degrees.", matrix: ["n","r180","n","r180","n","r180","n","r180","n","r180","n","r180","n","r180","n","r180","n","r180","n","r180","n","r180","n","r180"] },
+        { id: 19, title: "19. Horizontal Stripe Spin", desc: "Splits grid lanes horizontally, stacking native rows over 180-degree flipped rows indefinitely.", matrix: ["n","n","n","n","n","n","r180","r180","r180","r180","r180","r180","n","n","n","n","n","n","r180","r180","r180","r180","r180","r180"] },
+        { id: 20, title: "20. Wave Form Mirror", desc: "Creates wave oscillations across surfaces by refracting alternating vector reflections.", matrix: ["n","my","n","my","n","my","mx","mxy","mx","mxy","mx","mxy","n","my","n","my","n","my","mx","mxy","mx","mxy","mx","mxy"] },
+        { id: 21, title: "21. Shifted Chevron", desc: "Constructs arrowhead tracking channels moving left and right down adjacent horizontal lines.", matrix: ["mx90","my90","mx90","my90","mx90","my90","my90","mx90","my90","mx90","my90","mx90","mx90","my90","mx90","my90","mx90","my90","my90","mx90","my90","mx90","my90","mx90"] },
+        { id: 22, title: "22. Interlocking Blocks", desc: "Steps onward using nested blocks that rotate 90 degrees forward with every grid iteration.", matrix: ["n","r90","r180","r270","n","r90","r270","n","r90","r180","r270","n","r180","r270","n","r90","r180","r270","n","r90","r180","r270","n","r90"] },
+        { id: 23, title: "23. Maze Grid", desc: "Swivel steps the 'P' graphics until boundaries align into interconnected labyrinth channels.", matrix: ["r90","n","r90","n","r90","n","n","r270","n","r270","n","r270","r90","n","r90","n","r90","n","n","r270","n","r270","n","r270"] },
+        { id: 24, title: "24. Offset Reflection", desc: "Scatters off-axis reflections over the grid coordinates to soften seams.", matrix: ["mx","n","mx","n","mx","n","n","my","n","my","n","my","mx","n","mx","n","mx","n","n","my","n","my","n","my"] },
+        { id: 25, title: "25. Diamond Structure", desc: "Blends rotational parameters to assemble central rhombus structures inside grid quadrants.", matrix: ["r180","n","r180","n","r180","n","n","r180","n","r180","n","r180","r180","n","r180","n","r180","n","n","r180","n","r180","n","r180"] },
+        { id: 26, title: "26. Concentric Ripple", desc: "Cascades transform angles outward toward edges like ripples expanding on water.", matrix: ["n","r90","r180","r270","n","r90","r270","n","r90","r180","r270","n","r180","r270","n","r90","r180","r270","n","r90","r180","r270","n","r90"] },
+        { id: 27, title: "27. Mirror Stripe Mix", desc: "Employs vertical mirrors on columns while shifting horizontal positions linearly.", matrix: ["n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","my","mxy","my","mxy","my","mxy","my","mxy","my","mxy","my","mxy"] },
+        { id: 28, title: "28. Double Block Spin", desc: "Combines 2x2 cluster components and spins them together 180 degrees for sweeping motion.", matrix: ["n","n","r180","r180","n","n","n","n","r180","r180","n","n","r180","r180","n","n","r180","r180","r180","r180","n","n","r180","r180"] },
+        { id: 29, title: "29. Mirror Diamond Check", desc: "Alternates cross-axis reflections to mirror classic diamond crystal frameworks.", matrix: ["my90","mx90","my90","mx90","my90","mx90","mx90","my90","mx90","my90","mx90","my90","my90","mx90","my90","mx90","my90","mx90","mx90","my90","mx90","my90","mx90","my90"] },
+        { id: 30, title: "30. Staircase Mirror", desc: "Climbs diagonally step-by-step by pushing the reflection matrix down 1 block per row.", matrix: ["n","my","mx","mxy","n","my","my","mx","mxy","n","my","mx","mx","mxy","n","my","mx","mxy","mxy","n","my","mx","mxy","n"] },
+        { id: 31, title: "31. Quad Mirror Invert", desc: "Flashes quad-directional reflection passes while inverting values across intersecting nodes.", matrix: ["mxy","mx","my","n","mxy","mx","my","n","mxy","mx","my","n","mxy","mx","my","n","mxy","mx","my","n","mxy","mx","my","n"] },
+        { id: 32, title: "32. Spiral Spin", desc: "Spreads modules in a logarithmic helix curve so shapes roll outward continuously.", matrix: ["n","r90","r90","r180","r180","r270","r270","n","n","r90","r90","r180","r180","r270","r270","n","n","r90","r90","r180","r180","r270","r270","n"] },
+        { id: 33, title: "33. Basket Basket Horizontal Slant", desc: "Modified basketweave design that biases structural expansion horizontally.", matrix: ["n","r90","n","r90","n","r90","r90","n","r90","n","r90","n","n","r90","n","r90","n","r90","r90","n","r90","n","r90","n"] },
+        { id: 34, title: "34. Vertical Blocks Split", desc: "Splits column sets sideways to push left-and-right patterns away from center paths.", matrix: ["mx","mx","n","n","mx","mx","n","n","mx","mx","n","n","mx","mx","n","n","mx","mx","n","n","mx","mx","n","n"] },
+        { id: 35, title: "35. Tri-Rotation Wave", desc: "Balances 90-degree and 270-degree values to build clean fluid lines across grids.", matrix: ["r90","r270","r90","r270","r90","r270","r270","r90","r270","r90","r270","r90","r90","r270","r90","r270","r90","r270","r270","r90","r270","r90","r270","r90"] },
+        { id: 36, title: "36. Center Core Focus", desc: "Directs all graphic paths inward toward row centerlines to anchor visual attention.", matrix: ["mx","n","mx","n","mx","n","my","mxy","my","mxy","my","mxy","mx","n","mx","n","mx","n","my","mxy","my","mxy","my","mxy"] },
+        { id: 37, title: "37. Alternate Cross Fill", desc: "Fills negative spaces using inverse diagonal rotations scattered over vacant grids.", matrix: ["n","mxy","n","mxy","n","mxy","mxy","n","mxy","n","mxy","n","n","mxy","n","mxy","n","mxy","mxy","n","mxy","n","mxy","n"] },
+        { id: 38, title: "38. Chevron Chevron Flow V2", desc: "Creates sharp arrow configurations that dive vertically down screens without interruption.", matrix: ["r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90","r90","mx90"] },
+        { id: 40, title: "40. Fish Scale Layout", desc: "Overlaps modules conceptually to simulate scale arrays fanning outward.", matrix: ["my90","n","my90","n","my90","n","n","my90","n","my90","n","my90","my90","n","my90","n","my90","n","n","my90","n","my90","n","my90"] },
+        { id: 41, title: "41. Matrix Inversion", desc: "Swaps independent X and Y axis orientations on odd/even coordinates sequentially.", matrix: ["mx","my","mx","my","mx","my","my","mx","my","mx","my","mx","mx","my","mx","my","mx","my","my","mx","my","mx","my","mx"] },
+        { id: 42, title: "42. Offset Brick Mirror", desc: "Half-stepped running bond brick offsets coupled with mirrors to slice seam visibility.", matrix: ["n","mx","n","mx","n","mx","mx","n","mx","n","mx","n","n","mx","n","mx","n","mx","mx","n","mx","n","mx","n"] },
+        { id: 43, title: "43. Corner Lock", desc: "Hooks perimeter nodes together around four corner coordinates to secure interlocking edges.", matrix: ["r90","r180","n","r270","r90","r180","n","r270","r90","r180","n","r270","r90","r180","n","r270","r90","r180","n","r270","r90","r180","n","r270"] },
+        { id: 44, title: "44. Parallel Reflection Rows", desc: "Locks continuous horizontal lanes that face and reflect each other symmetrically.", matrix: ["n","n","n","n","n","n","my","my","my","my","my","my","my","my","my","my","my","my","n","n","n","n","n","n"] },
+        { id: 45, title: "45. Parallel Reflection Columns", desc: "Locks continuous vertical lanes that face and reflect each other symmetrically.", matrix: ["n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx","n","mx"] },
+        { id: 46, title: "46. Pinwheel Inverted", desc: "Reverses pinwheel vectors to produce a centrifugal layout drawing attention outward.", matrix: ["r270","r180","r90","n","r270","r180","r180","q90","n","r270","r180","r90","n","r270","r180","r90","n","r270","r180","r90","n","r270","r180","r90"] },
+        { id: 47, title: "47. Double Diagonal Slide", desc: "Two-tier diagonal glides that distribute elements seamlessly across all directions.", matrix: ["n","n","r90","r90","n","n","r90","r90","n","n","r90","r90","n","n","r90","r90","n","n","r90","r90","n","n","r90","r90"] },
+        { id: 48, title: "48. Maze Flow V2", desc: "Advanced labyrinth path flow utilizing a complex mixture of X/Y reflection offsets.", matrix: ["mx","my","mx","my","mx","my","r180","n","r180","n","r180","n","mx","my","mx","my","mx","my","r180","n","r180","n","r180","n"] },
+        { id: 49, title: "49. Infinite Cross Grid", desc: "Symmetric grid structure that stacks cross-rotations exponentially across the field.", matrix: ["mxy","n","mxy","n","mxy","n","n","mxy","n","mxy","n","mxy","mxy","n","mxy","n","mxy","n","n","mxy","n","mxy","n","mxy"] },
+        { id: 50, title: "50. Perfect Chaos Symmetry", desc: "Complex appearance, yet 4x4 clusters register together perfectly to scale across bounds infinitely.", matrix: ["n","r90","mx","my","r180","r270","mxy","n","mx","my","n","r90","mxy","n","r180","r270","n","r90","mx","my","r180","r270","mxy","n"] }
+    ];
+
+    let currentImageUrl = "";
+    let activePattern = null;
+    let selectedTool = "brush";
+    let selectedLineWidth = 6;
+    let cropper = null; 
+    let isHDActive = false;
+
+    // Crop Scale Variables
+    let cropFlipH = 1;
+    let cropFlipV = 1;
+    
+    // Canvas Engine State (Multi-Layer Setup)
+    const canvas = document.getElementById('tileCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Offscreen layers
+    const baseCanvas = document.createElement('canvas');
+    baseCanvas.width = 240; baseCanvas.height = 240;
+    const baseCtx = baseCanvas.getContext('2d');
+
+    const pixelPaintCanvas = document.createElement('canvas');
+    pixelPaintCanvas.width = 240; pixelPaintCanvas.height = 240;
+    const pixelPaintCtx = pixelPaintCanvas.getContext('2d');
+
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let drawingHistory = [];
+    let historyStep = -1;
+    let isCtrlPressed = false;
+    let canvasSnapshotBase = null;
+    let canvasSnapshotPixel = null;
+
+    // Zoom/Pan Matrix Controls
+    let scale = 1;
+    let panX = 0, panY = 0;
+    let isPanning = false;
+    let startPanX = 0, startPanY = 0;
+
+    let isChainLocked = true;
+
+    function getGridSize() {
+        return isHDActive ? 200 : 100;
+    }
+
+    function adjustMobilePanelHeight() {
+        if (window.innerWidth > 991) return;
+        const panel = document.getElementById('toolsPanel');
+        const activeTab = document.querySelector('.tool-group.active-tab');
+        if (panel && activeTab) {
+            let targetMaxHeight = '245px';
+            if (activeTab.id === 'tabGridExpansion') {
+                targetMaxHeight = '185px'; 
+            } else if (activeTab.id === 'tabTileStudio') {
+                targetMaxHeight = '290px';
+            }
+            panel.style.maxHeight = targetMaxHeight;
+        }
+    }
+
+    function setupPanelResizer() {
+        const resizer = document.getElementById('panelResizer');
+        const panel = document.getElementById('toolsPanel');
+        const panelContent = panel.querySelector('.panel-content');
+        if (!resizer || !panel) return;
+
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        resizer.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 991) return;
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = panel.offsetWidth;
+            resizer.classList.add('is-resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isResizing || window.innerWidth <= 991) return;
+            
+            const dx = startX - e.clientX;
+            let newWidth = startWidth + dx;
+            const minWidth = 480;
+
+            panel.style.width = `${newWidth}px`;
+            panel.style.minWidth = `${newWidth}px`;
+
+            if (panelContent.scrollHeight > panelContent.clientHeight) {
+                let currentW = newWidth;
+                while (currentW > minWidth && panelContent.scrollHeight > panelContent.clientHeight) {
+                    currentW -= 2;
+                    panel.style.width = `${currentW}px`;
+                    panel.style.minWidth = `${currentW}px`;
+                }
+                newWidth = Math.max(minWidth, currentW);
+            }
+
+            if (newWidth < minWidth) {
+                newWidth = minWidth;
+            }
+
+            panel.style.width = `${newWidth}px`;
+            panel.style.minWidth = `${newWidth}px`;
+            
+            renderTessellation();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizer.classList.remove('is-resizing');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+    }
+
+    function init() {
+        generateExplorerGrid();
+        setupDropdownOptions();
+        setupToolsGrid();
+        setupCanvasDefault();
+        setupLineWidthSelector();
+        setupMobileTabSystems();
+        setupDesktopTabs();
+        bindEvents();
+        setupResponsiveLayoutEngine();
+        setupSaveExportModal();
+        setupPanelResizer();
+        renderTileGridOverlay();
+        setTimeout(adjustMobilePanelHeight, 150);
+    }
+
+    function setupResponsiveLayoutEngine() {
+        const selectElement = document.getElementById('layoutSelect');
+        const headerContainer = document.getElementById('headerLayoutSelectWrapper');
+        const desktopPanelZone = document.getElementById('desktopSelectAnchor');
+        const textLabels = document.querySelectorAll('.color-name-text');
+
+        if (window.innerWidth <= 991) {
+            headerContainer.appendChild(selectElement);
+            textLabels.forEach(label => {
+                label.textContent = label.getAttribute('data-mobile');
+            });
+            adjustMobilePanelHeight();
+        } else {
+            desktopPanelZone.appendChild(selectElement);
+            textLabels.forEach(label => {
+                label.textContent = label.getAttribute('data-desktop');
+            });
+            const panel = document.getElementById('toolsPanel');
+            if(panel) panel.style.maxHeight = 'none';
+        }
+    }
+
+    window.addEventListener('resize', setupResponsiveLayoutEngine);
+
+    function generateExplorerGrid() {
+        const wrapper = document.getElementById('patternsWrapper');
+        wrapper.innerHTML = "";
+        patternsData.forEach(pattern => {
+            const card = document.createElement('div');
+            card.className = 'pattern-card';
+            card.onclick = () => openEditor(pattern);
+
+            const header = document.createElement('div');
+            header.className = 'pattern-header';
+            header.innerHTML = `<h3 class="pattern-title">${pattern.title}</h3>`;
+
+            const preview = document.createElement('div');
+            preview.className = 'pattern-preview';
+
+            pattern.matrix.forEach(transformClass => {
+                const tile = document.createElement('div');
+                tile.className = `tile ${transformClass}`;
+                if (currentImageUrl) {
+                    tile.style.backgroundImage = `url('${currentImageUrl}')`;
+                    tile.style.backgroundColor = document.getElementById('bgColor')?.value || "#ffffff";
+                } else {
+                    tile.textContent = "P";
+                }
+                preview.appendChild(tile);
+            });
+
+            const info = document.createElement('div');
+            info.className = 'pattern-info';
+            info.innerHTML = `<strong>Rule:</strong> ${pattern.desc}`;
+
+            card.appendChild(header);
+            card.appendChild(preview);
+            card.appendChild(info);
+            wrapper.appendChild(card);
+        });
+    }
+
+    function setupDropdownOptions() {
+        const select = document.getElementById('layoutSelect');
+        patternsData.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.title;
+            select.appendChild(opt);
+        });
+    }
+
+    function setupToolsGrid() {
+        const buttons = document.querySelectorAll('.tool-btn-outline');
+        buttons.forEach(btn => {
+            btn.onclick = () => {
+                if (btn.hasAttribute('disabled')) return;
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedTool = btn.getAttribute('data-tool');
+            };
+        });
+    }
+
+    function updatePixelateToolLock() {
+        const isPixelate = document.getElementById('chkPixelate').checked;
+        const toolBtns = document.querySelectorAll('#toolsGrid .tool-btn-outline');
+        
+        toolBtns.forEach(btn => {
+            const tool = btn.getAttribute('data-tool');
+            if (isPixelate) {
+                if (tool !== 'fill' && tool !== 'eraser') {
+                    btn.style.opacity = '0.35';
+                    btn.style.pointerEvents = 'none';
+                    btn.setAttribute('disabled', 'true');
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                    btn.removeAttribute('disabled');
+                }
+            } else {
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+                btn.removeAttribute('disabled');
+            }
+        });
+
+        if (isPixelate && selectedTool !== 'fill' && selectedTool !== 'eraser') {
+            toolBtns.forEach(b => b.classList.remove('active'));
+            const bucketBtn = document.getElementById('btnBucketTool');
+            if (bucketBtn) bucketBtn.classList.add('active');
+            selectedTool = 'fill';
+        }
+
+        const strokeColorInput = document.getElementById('strokeColor');
+        const strokeChkInput = document.getElementById('chkUseStroke');
+        const fillColorInput = document.getElementById('fillColor');
+        const fillChkInput = document.getElementById('chkUseFill');
+
+        const strokeWrapper = strokeColorInput ? strokeColorInput.closest('.color-picker-wrapper') : null;
+        const fillWrapper = fillColorInput ? fillColorInput.closest('.color-picker-wrapper') : null;
+
+        if (isPixelate) {
+            if (strokeWrapper) strokeWrapper.style.opacity = '0.35';
+            if (fillWrapper) fillWrapper.style.opacity = '0.35';
+            if (strokeColorInput) strokeColorInput.disabled = true;
+            if (strokeChkInput) strokeChkInput.disabled = true;
+            if (fillColorInput) fillColorInput.disabled = true;
+            if (fillChkInput) fillChkInput.disabled = true;
+        } else {
+            if (strokeWrapper) strokeWrapper.style.opacity = '1';
+            if (fillWrapper) fillWrapper.style.opacity = '1';
+            if (strokeColorInput) strokeColorInput.disabled = false;
+            if (strokeChkInput) strokeChkInput.disabled = false;
+            if (fillColorInput) fillColorInput.disabled = false;
+            if (fillChkInput) fillChkInput.disabled = false;
+        }
+    }
+
+    function setupLineWidthSelector() {
+        const dots = document.querySelectorAll('#dotSizeContainer .line-dot-opt');
+        dots.forEach(dot => {
+            dot.onclick = () => {
+                dots.forEach(d => d.classList.remove('active'));
+                dot.classList.add('active');
+                selectedLineWidth = parseInt(dot.getAttribute('data-value'));
+            };
+        });
+    }
+
+    function setupMobileTabSystems() {
+        const navItems = document.querySelectorAll('.nav-tab-item');
+        const groups = document.querySelectorAll('.tools-panel .tool-group');
+        const panel = document.getElementById('toolsPanel');
+        
+        navItems.forEach(item => {
+            item.onclick = (e) => {
+                if (window.innerWidth > 991) return;
+
+                const targetId = item.getAttribute('data-target');
+                const isCurrentlyActive = item.classList.contains('active');
+                const isPanelCollapsed = panel.classList.contains('collapsed');
+
+                if (isCurrentlyActive && !isPanelCollapsed) {
+                    panel.classList.add('collapsed');
+                    item.classList.remove('active');
+                } else {
+                    panel.classList.remove('collapsed');
+                    navItems.forEach(n => n.classList.remove('active'));
+                    groups.forEach(g => g.classList.remove('active-tab'));
+                    
+                    item.classList.add('active');
+                    document.getElementById(targetId).classList.add('active-tab');
+
+                    document.querySelectorAll('.desktop-tab-btn').forEach(d => {
+                        d.classList.toggle('active', d.getAttribute('data-target') === targetId);
+                    });
+                    
+                    adjustMobilePanelHeight();
+                }
+            };
+        });
+    }
+
+    function setupDesktopTabs() {
+        const dtTabs = document.querySelectorAll('.desktop-tab-btn');
+        const groups = document.querySelectorAll('.tools-panel .tool-group');
+
+        dtTabs.forEach(tab => {
+            tab.onclick = () => {
+                dtTabs.forEach(t => t.classList.remove('active'));
+                groups.forEach(g => g.classList.remove('active-tab'));
+
+                tab.classList.add('active');
+                const targetId = tab.getAttribute('data-target');
+                document.getElementById(targetId).classList.add('active-tab');
+
+                document.querySelectorAll('.nav-tab-item').forEach(n => {
+                    n.classList.toggle('active', n.getAttribute('data-target') === targetId);
+                });
+            };
+        });
+    }
+
+    function setupCanvasDefault() {
+        baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+        pixelPaintCtx.clearRect(0, 0, pixelPaintCanvas.width, pixelPaintCanvas.height);
+
+        baseCanvas.style.backgroundColor = document.getElementById('bgColor').value;
+        canvas.style.backgroundColor = document.getElementById('bgColor').value;
+
+        baseCtx.font = "bold 130px sans-serif";
+        baseCtx.fillStyle = "#1e293b";
+        baseCtx.textAlign = "center";
+        baseCtx.textBaseline = "middle";
+        baseCtx.fillText("P", baseCanvas.width / 2, baseCanvas.height / 2);
+
+        updateCompositeCanvas();
+        saveCanvasState();
+    }
+
+    function updateCompositeCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.style.backgroundColor = document.getElementById('bgColor').value;
+
+        const isPixelate = document.getElementById('chkPixelate').checked;
+        const pixelateMode = document.getElementById('pixelateModeSelect').value;
+        const subDiv = parseInt(document.getElementById('subGridDiv').value) || 10;
+
+        if (isPixelate) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = baseCanvas.width;
+            tempCanvas.height = baseCanvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(baseCanvas, 0, 0);
+            tempCtx.drawImage(pixelPaintCanvas, 0, 0);
+
+            applyPixelate(tempCtx, tempCanvas.width, tempCanvas.height, 1, 1, subDiv, pixelateMode);
+            ctx.drawImage(tempCanvas, 0, 0);
+        } else {
+            ctx.drawImage(baseCanvas, 0, 0);
+            ctx.drawImage(pixelPaintCanvas, 0, 0);
+        }
+
+        renderTessellation();
+    }
+
+    function renderMiniPPreview(pattern) {
+        const grid = document.getElementById('miniPreviewGrid');
+        if(!grid) return;
+        grid.innerHTML = "";
+        pattern.matrix.forEach(transform => {
+            const tile = document.createElement('div');
+            tile.className = `mini-tile ${transform}`;
+            tile.textContent = "P";
+            grid.appendChild(tile);
+        });
+    }
+
+    function floodFillOnPaintLayer(startX, startY, fillColor) {
+        const compositeData = ctx.getImageData(0, 0, 240, 240).data;
+        const paintImageData = pixelPaintCtx.getImageData(0, 0, 240, 240);
+        const paintData = paintImageData.data;
+
+        function getCompColor(x, y) {
+            const index = (y * 240 + x) * 4;
+            return [compositeData[index], compositeData[index + 1], compositeData[index + 2], compositeData[index + 3]];
+        }
+
+        const targetColor = getCompColor(startX, startY);
+        if (colorsMatch(targetColor, fillColor)) return;
+
+        const queue = [[startX, startY]];
+        const visited = new Uint8Array(240 * 240);
+
+        while (queue.length > 0) {
+            const [x, y] = queue.pop();
+            if (x < 0 || x >= 240 || y < 0 || y >= 240) continue;
+            const idx = y * 240 + x;
+            if (visited[idx]) continue;
+            visited[idx] = 1;
+
+            const currentColor = getCompColor(x, y);
+            if (colorsMatch(currentColor, targetColor)) {
+                const pixelIndex = idx * 4;
+                paintData[pixelIndex] = fillColor[0];
+                paintData[pixelIndex + 1] = fillColor[1];
+                paintData[pixelIndex + 2] = fillColor[2];
+                paintData[pixelIndex + 3] = 255;
+
+                queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+            }
+        }
+        pixelPaintCtx.putImageData(paintImageData, 0, 0);
+
+        function colorsMatch(c1, c2) {
+            return Math.abs(c1[0] - c2[0]) < 15 && Math.abs(c1[1] - c2[1]) < 15 && Math.abs(c1[2] - c2[2]) < 15;
+        }
+    }
+
+    function hexToRgb(hex) {
+        const bigint = parseInt(hex.slice(1), 16);
+        return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+    }
+
+    function syncGridInputs(sliderId, numId, isColumnInput) {
+        const slider = document.getElementById(sliderId);
+        const num = document.getElementById(numId);
+        
+        const oppositeSlider = document.getElementById(isColumnInput ? 'gridRows' : 'gridCols');
+        const oppositeNum = document.getElementById(isColumnInput ? 'gridRowsNum' : 'gridColsNum');
+
+        function updateValues(value) {
+            let val = parseInt(value);
+            if (isNaN(val)) val = 1;
+            val = Math.min(Math.max(parseInt(slider.min), val), parseInt(slider.max));
+
+            slider.value = val;
+            num.value = val;
+
+            if (isChainLocked) {
+                oppositeSlider.value = val;
+                oppositeNum.value = val;
+            }
+            renderTessellation();
+        }
+
+        slider.oninput = function() { updateValues(this.value); };
+        num.oninput = function() { updateValues(this.value); };
+    }
+
+    function getTransformWithPeriod(matrix, r, c) {
+        const blueprintCols = 6; const blueprintRows = 4;
+        const br = r % blueprintRows;
+        const rowElements = [];
+        for (let i = 0; i < blueprintCols; i++) rowElements.push(matrix[br * blueprintCols + i]);
+        let pX = blueprintCols;
+        for (let p = 1; p < blueprintCols; p++) {
+            let isMatch = true;
+            for (let i = 0; i < blueprintCols; i++) { if (rowElements[i] !== rowElements[i % p]) { isMatch = false; break; } }
+            if (isMatch) { pX = p; break; }
+        }
+        return rowElements[c % pX] || "n";
+    }
+
+    let initialTouchDist = null;
+
+    function autoFitPreviewToViewport() {
+        const output = document.getElementById('tessellationOutput');
+        if (!output) return;
+        
+        setTimeout(() => {
+            const cols = parseInt(document.getElementById('gridCols').value) || 8;
+            const rows = parseInt(document.getElementById('gridRows').value) || 6;
+            const tileSize = getGridSize();
+            
+            const rawWidth = cols * tileSize;
+            const rawHeight = rows * tileSize;
+            if (rawWidth === 0 || rawHeight === 0) return;
+
+            const availWidth = window.innerWidth;
+            let panelHeight = 0;
+            if (window.innerWidth <= 991) {
+                const panel = document.getElementById('toolsPanel');
+                if (panel && !panel.classList.contains('collapsed')) {
+                    panelHeight = parseInt(panel.style.maxHeight) || 245;
+                }
+                panelHeight += 60;
+            }
+            const availHeight = window.innerHeight - 60 - panelHeight; 
+
+            const scaleX = (availWidth * 0.85) / rawWidth;
+            const scaleY = (availHeight * 0.85) / rawHeight;
+            
+            scale = Math.min(scaleX, scaleY, 1);
+            
+            panX = 0;
+            if (window.innerWidth <= 991) {
+                panY = -(panelHeight / 4);
+            } else {
+                panY = 0;
+            }
+            applyTransform();
+        }, 60);
+    }
+
+    function renderTileGridOverlay() {
+        const overlay = document.getElementById('tileGridOverlay');
+        if (!overlay) return;
+        const oCtx = overlay.getContext('2d');
+        oCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+        const isPixelate = document.getElementById('chkPixelate').checked;
+        const showSubGrid = document.getElementById('chkShowSubGrid').checked;
+
+        if (isPixelate || showSubGrid) {
+            const subDiv = parseInt(document.getElementById('subGridDiv').value) || 10;
+            const cellW = overlay.width / subDiv;
+            const cellH = overlay.height / subDiv;
+
+            oCtx.save();
+            oCtx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+            oCtx.lineWidth = 1;
+
+            for (let c = 0; c <= subDiv; c++) {
+                oCtx.beginPath();
+                oCtx.moveTo(c * cellW, 0);
+                oCtx.lineTo(c * cellW, overlay.height);
+                oCtx.stroke();
+            }
+            for (let r = 0; r <= subDiv; r++) {
+                oCtx.beginPath();
+                oCtx.moveTo(0, r * cellH);
+                oCtx.lineTo(overlay.width, r * cellH);
+                oCtx.stroke();
+            }
+            oCtx.restore();
+        }
+    }
+
+    function bindEvents() {
+        window.addEventListener('popstate', (e) => {
+            if(document.getElementById('editorView').style.display === 'block') {
+                e.preventDefault();
+                closeEditorRoutine();
+            }
+        });
+
+        document.getElementById('btnClearToP').onclick = () => {
+            currentImageUrl = "";
+            generateExplorerGrid();
+        };
+
+        document.getElementById('chkShowGrid').onchange = () => {
+            renderTessellation();
+        };
+
+        document.getElementById('chkShowSubGrid').onchange = () => {
+            renderTessellation();
+            renderTileGridOverlay();
+        };
+
+        document.getElementById('chkPixelate').onchange = (e) => {
+            const modeRow = document.getElementById('pixelateModeRow');
+            if (modeRow) modeRow.style.display = e.target.checked ? 'flex' : 'none';
+            updatePixelateToolLock();
+            updateCompositeCanvas();
+            renderTileGridOverlay();
+            adjustMobilePanelHeight();
+        };
+
+        document.getElementById('pixelateModeSelect').onchange = () => {
+            updateCompositeCanvas();
+        };
+
+        const subSlider = document.getElementById('subGridDiv');
+        const subNum = document.getElementById('subGridDivNum');
+        if (subSlider && subNum) {
+            subSlider.oninput = function() {
+                subNum.value = this.value;
+                updateCompositeCanvas();
+                renderTileGridOverlay();
+            };
+            subNum.oninput = function() {
+                let val = parseInt(this.value) || 2;
+                val = Math.min(Math.max(2, val), 100);
+                subSlider.value = val;
+                this.value = val;
+                updateCompositeCanvas();
+                renderTileGridOverlay();
+            };
+        }
+
+        document.getElementById('btnHDToggle').onclick = function() {
+            isHDActive = !isHDActive;
+            this.classList.toggle('active-toggle', isHDActive);
+            renderTessellation();
+        };
+
+        document.getElementById('tileImageUpload').addEventListener('change', (e) => {
+            handleImageUpload(e, (dataUrl) => {
+                const cropImg = document.getElementById('cropImageTag');
+                cropImg.src = dataUrl;
+                document.getElementById('cropModal').style.display = 'flex';
+                if (cropper) cropper.destroy();
+                cropFlipH = 1;
+                cropFlipV = 1;
+                setTimeout(() => {
+                    cropper = new Cropper(cropImg, { 
+                        aspectRatio: 1, 
+                        viewMode: 1, 
+                        background: true,
+                        dragMode: 'move',
+                        responsive: true,
+                        restore: true
+                    });
+                }, 50);
+            });
+            e.target.value = '';
+        });
+
+        document.getElementById('btnRotateLeft').onclick = () => {
+            if (cropper) cropper.rotate(-90);
+        };
+        document.getElementById('btnRotateRight').onclick = () => {
+            if (cropper) cropper.rotate(90);
+        };
+        document.getElementById('btnFlipH').onclick = () => {
+            if (cropper) {
+                cropFlipH = cropFlipH === 1 ? -1 : 1;
+                cropper.scaleX(cropFlipH);
+            }
+        };
+        document.getElementById('btnFlipV').onclick = () => {
+            if (cropper) {
+                cropFlipV = cropFlipV === 1 ? -1 : 1;
+                cropper.scaleY(cropFlipV);
+            }
+        };
+
+        function closeCropModal() {
+            document.getElementById('cropModal').style.display = 'none';
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+        }
+
+        document.getElementById('btnModalXClose').onclick = closeCropModal;
+        document.getElementById('btnCropNone').onclick = function() {
+            if (!cropper) return;
+            cropper.clear();
+            const fullCanvas = cropper.getCroppedCanvas();
+            baseCtx.clearRect(0, 0, 240, 240);
+            pixelPaintCtx.clearRect(0, 0, 240, 240);
+            baseCtx.drawImage(fullCanvas, 0, 0, 240, 240);
+            saveCanvasState(); 
+            updateCompositeCanvas();
+            closeCropModal();
+        };
+
+        document.getElementById('btnCropSquare').onclick = () => {
+            if (!cropper) return;
+            const croppedCanvas = cropper.getCroppedCanvas({ width: 240, height: 240 });
+            baseCtx.clearRect(0, 0, 240, 240);
+            pixelPaintCtx.clearRect(0, 0, 240, 240);
+            baseCtx.drawImage(croppedCanvas, 0, 0, 240, 240);
+            saveCanvasState(); 
+            updateCompositeCanvas();
+            closeCropModal();
+        };
+
+        document.getElementById('btnUndo').onclick = () => { if (historyStep > 0) { historyStep--; restoreCanvasStep(); } };
+        document.getElementById('btnRedo').onclick = () => { if (historyStep < drawingHistory.length - 1) { historyStep++; restoreCanvasStep(); } };
+        
+        document.getElementById('btnClearPaint').onclick = () => {
+            pixelPaintCtx.clearRect(0, 0, 240, 240);
+            saveCanvasState();
+            updateCompositeCanvas();
+        };
+
+        document.getElementById('btnClearCanvas').onclick = () => { 
+            baseCtx.clearRect(0, 0, 240, 240); 
+            pixelPaintCtx.clearRect(0, 0, 240, 240);
+            saveCanvasState(); 
+            updateCompositeCanvas(); 
+        };
+
+        document.getElementById('btnResetToP').onclick = () => { 
+            baseCtx.clearRect(0, 0, 240, 240);
+            pixelPaintCtx.clearRect(0, 0, 240, 240);
+            baseCanvas.style.backgroundColor = document.getElementById('bgColor').value;
+            canvas.style.backgroundColor = document.getElementById('bgColor').value;
+
+            baseCtx.font = "bold 130px sans-serif";
+            baseCtx.fillStyle = "#1e293b";
+            baseCtx.textAlign = "center";
+            baseCtx.textBaseline = "middle";
+            baseCtx.fillText("P", baseCanvas.width / 2, baseCanvas.height / 2);
+
+            saveCanvasState();
+            updateCompositeCanvas();
+        };
+
+        function closeEditorRoutine() {
+            currentImageUrl = canvas.toDataURL();
+            document.getElementById('editorView').style.display = 'none';
+            document.getElementById('mainView').style.display = 'block';
+            generateExplorerGrid();
+        }
+
+        document.getElementById('btnBack').onclick = () => { closeEditorRoutine(); };
+
+        document.getElementById('layoutSelect').onchange = (e) => {
+            const found = patternsData.find(p => p.id == e.target.value);
+            if(found) {
+                activePattern = found;
+                document.getElementById('editPatternTitle').textContent = found.title;
+                document.getElementById('editPatternDesc').textContent = found.desc;
+                renderMiniPPreview(found); renderTessellation();
+            }
+        };
+
+        document.getElementById('btnChainLock').onclick = function() {
+            isChainLocked = !isChainLocked;
+            this.classList.toggle('active', isChainLocked);
+            if (isChainLocked) {
+                const currentCols = document.getElementById('gridCols').value;
+                document.getElementById('gridRows').value = currentCols;
+                document.getElementById('gridRowsNum').value = currentCols;
+                renderTessellation();
+            }
+        };
+
+        syncGridInputs('gridCols', 'gridColsNum', true);
+        syncGridInputs('gridRows', 'gridRowsNum', false);
+        
+        document.getElementById('bgColor').oninput = () => {
+            canvas.style.backgroundColor = document.getElementById('bgColor').value;
+            baseCanvas.style.backgroundColor = document.getElementById('bgColor').value;
+            updateCompositeCanvas();
+        };
+
+        document.getElementById('btnBucketTool').onclick = () => {
+            const bucketBtn = document.getElementById('btnBucketTool');
+            if (bucketBtn.hasAttribute('disabled')) return;
+            document.querySelectorAll('.tool-btn-outline').forEach(b => b.classList.remove('active'));
+            bucketBtn.classList.add('active');
+            selectedTool = 'fill';
+        };
+
+        window.addEventListener('keydown', (e) => { if(e.key === 'Control') isCtrlPressed = true; });
+        window.addEventListener('keyup', (e) => { if(e.key === 'Control') isCtrlPressed = false; });
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+
+        canvas.addEventListener('touchstart', function(e) {
+            const touch = e.touches[0];
+            const mEvent = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY });
+            canvas.dispatchEvent(mEvent);
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', function(e) {
+            const touch = e.touches[0];
+            const mEvent = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
+            canvas.dispatchEvent(mEvent);
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', function() {
+            canvas.dispatchEvent(new MouseEvent('mouseup', {}));
+        }, { passive: true });
+
+        const previewArea = document.getElementById('previewArea');
+        previewArea.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) scale *= 1.1; else scale /= 1.1;
+            scale = Math.min(Math.max(0.3, scale), 4);
+            applyTransform();
+        }, { passive: false });
+
+        previewArea.addEventListener('mousedown', (e) => {
+            isPanning = true;
+            startPanX = e.clientX - panX; startPanY = e.clientY - panY;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            let targetX = e.clientX - startPanX;
+            let targetY = e.clientY - startPanY;
+            
+            const maxW = window.innerWidth * 0.4; 
+            const maxH = window.innerHeight * 0.4;
+            panX = Math.min(Math.max(-maxW, targetX), maxW);
+            panY = Math.min(Math.max(-maxH, targetY), maxH);
+            applyTransform();
+        });
+        window.addEventListener('mouseup', () => { isPanning = false; });
+
+        previewArea.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) {
+                isPanning = true;
+                const touch = e.touches[0];
+                startPanX = touch.clientX - panX; startPanY = touch.clientY - panY;
+            } else if (e.touches.length === 2) {
+                isPanning = false;
+                initialTouchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        }, { passive: true });
+
+        previewArea.addEventListener('touchmove', function(e) {
+            if (isPanning && e.touches.length === 1) {
+                const touch = e.touches[0];
+                let targetX = touch.clientX - startPanX;
+                let targetY = touch.clientY - startPanY;
+                
+                const maxW = window.innerWidth * 0.4; 
+                const maxH = window.innerHeight * 0.4;
+                panX = Math.min(Math.max(-maxW, targetX), maxW);
+                panY = Math.min(Math.max(-maxH, targetY), maxH);
+                applyTransform();
+            } else if (e.touches.length === 2 && initialTouchDist !== null) {
+                const currentDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const factor = currentDist / initialTouchDist;
+                initialTouchDist = currentDist;
+                scale = Math.min(Math.max(0.3, scale * factor), 4);
+                applyTransform();
+            }
+        }, { passive: true });
+
+        previewArea.addEventListener('touchend', function(e) {
+            isPanning = false;
+            if (e.touches.length < 2) initialTouchDist = null;
+        }, { passive: true });
+
+        document.getElementById('btnResetZoom').onclick = (e) => {
+            e.stopPropagation(); scale = 1; panX = 0; panY = 0; applyTransform();
+            autoFitPreviewToViewport();
+        };
+    }
+
+    function applyTransform() {
+        const output = document.getElementById('tessellationOutput');
+        if(output) output.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    function handleImageUpload(e, callback) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => callback(event.target.result);
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function openEditor(pattern) {
+        activePattern = pattern;
+        document.getElementById('mainView').style.display = 'none';
+        document.getElementById('editorView').style.display = 'block';
+        window.history.pushState({editing: true}, "");
+
+        document.getElementById('layoutSelect').value = pattern.id;
+        document.getElementById('editPatternTitle').textContent = pattern.title;
+        document.getElementById('editPatternDesc').textContent = pattern.desc;
+        
+        renderMiniPPreview(pattern);
+        baseCanvas.style.backgroundColor = document.getElementById('bgColor').value;
+        canvas.style.backgroundColor = document.getElementById('bgColor').value;
+
+        if(currentImageUrl) {
+            const img = new Image();
+            img.onload = () => {
+                baseCtx.clearRect(0, 0, 240, 240);
+                pixelPaintCtx.clearRect(0, 0, 240, 240);
+                baseCtx.drawImage(img, 0, 0, 240, 240);
+                drawingHistory = []; historyStep = -1; saveCanvasState(); updateCompositeCanvas();
+                renderTileGridOverlay();
+                autoFitPreviewToViewport();
+            };
+            img.src = currentImageUrl;
+        } else {
+            drawingHistory = []; historyStep = -1; setupCanvasDefault(); updateCompositeCanvas();
+            renderTileGridOverlay();
+            autoFitPreviewToViewport();
+        }
+        setupResponsiveLayoutEngine();
+        updatePixelateToolLock();
+    }
+
+    function applyPixelate(oCtx, width, height, cols, rows, subDiv, pixelMode = 'frequent') {
+        if (subDiv <= 0) return;
+        const totalSubCols = cols * subDiv;
+        const totalSubRows = rows * subDiv;
+        const subW = width / totalSubCols;
+        const subH = height / totalSubRows;
+
+        const imgData = oCtx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        for (let r = 0; r < totalSubRows; r++) {
+            for (let c = 0; c < totalSubCols; c++) {
+                const startX = Math.floor(c * subW);
+                const startY = Math.floor(r * subH);
+                const endX = Math.floor((c + 1) * subW);
+                const endY = Math.floor((r + 1) * subH);
+
+                let colorCounts = {};
+                let maxCount = 0;
+
+                let sumR = 0, sumG = 0, sumB = 0;
+                let validPixels = 0;
+
+                let minLum = Infinity, maxLum = -1;
+                let darkestColor = null, lightestColor = null;
+
+                const stepX = Math.max(1, Math.floor((endX - startX) / 10));
+                const stepY = Math.max(1, Math.floor((endY - startY) / 10));
+
+                for (let y = startY; y < endY; y += stepY) {
+                    for (let x = startX; x < endX; x += stepX) {
+                        const index = (y * width + x) * 4;
+                        const red = data[index];
+                        const green = data[index + 1];
+                        const blue = data[index + 2];
+                        const alpha = data[index + 3];
+
+                        if (alpha < 10) continue;
+
+                        validPixels++;
+                        sumR += red;
+                        sumG += green;
+                        sumB += blue;
+
+                        const lum = 0.299 * red + 0.587 * green + 0.114 * blue;
+                        if (lum < minLum) {
+                            minLum = lum;
+                            darkestColor = `rgb(${red},${green},${blue})`;
+                        }
+                        if (lum > maxLum) {
+                            maxLum = lum;
+                            lightestColor = `rgb(${red},${green},${blue})`;
+                        }
+
+                        const qr = Math.round(red / 16) * 16;
+                        const qg = Math.round(green / 16) * 16;
+                        const qb = Math.round(blue / 16) * 16;
+                        const key = `${qr},${qg},${qb}`;
+
+                        colorCounts[key] = (colorCounts[key] || 0) + 1;
+                        if (colorCounts[key] > maxCount) {
+                            maxCount = colorCounts[key];
+                        }
+                    }
+                }
+
+                if (validPixels > 0) {
+                    let chosenColor = "rgba(0,0,0,0)";
+
+                    if (pixelMode === 'average') {
+                        const avgR = Math.round(sumR / validPixels);
+                        const avgG = Math.round(sumG / validPixels);
+                        const avgB = Math.round(sumB / validPixels);
+                        chosenColor = `rgb(${avgR},${avgG},${avgB})`;
+                    } else if (pixelMode === 'darkest' && darkestColor) {
+                        chosenColor = darkestColor;
+                    } else if (pixelMode === 'lightest' && lightestColor) {
+                        chosenColor = lightestColor;
+                    } else {
+                        for (const [key, count] of Object.entries(colorCounts)) {
+                            if (count === maxCount) {
+                                const [rVal, gVal, bVal] = key.split(',');
+                                chosenColor = `rgb(${rVal},${gVal},${bVal})`;
+                                break;
+                            }
+                        }
+                    }
+
+                    oCtx.fillStyle = chosenColor;
+                    oCtx.fillRect(startX, startY, endX - startX, endY - startY);
+                }
+            }
+        }
+    }
+
+    function renderTessellation() {
+        if (!activePattern) return;
+        const cols = parseInt(document.getElementById('gridCols').value) || 8;
+        const rows = parseInt(document.getElementById('gridRows').value) || 6;
+        const subDiv = parseInt(document.getElementById('subGridDiv').value) || 10;
+        const tileSize = getGridSize();
+        const currentBg = document.getElementById('bgColor').value;
+
+        const showMainGrid = document.getElementById('chkShowGrid').checked;
+        const showSubGrid = document.getElementById('chkShowSubGrid').checked;
+
+        const outputCanvas = document.getElementById('tessellationOutput');
+        if (!outputCanvas) return;
+        
+        const oCtx = outputCanvas.getContext('2d');
+
+        outputCanvas.width = cols * tileSize;
+        outputCanvas.height = rows * tileSize;
+        
+        oCtx.fillStyle = currentBg;
+        oCtx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+
+        const sourceTileImg = new Image();
+        sourceTileImg.src = canvas.toDataURL();
+        
+        sourceTileImg.onload = function() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const transform = getTransformWithPeriod(activePattern.matrix, r, c);
+                    oCtx.save();
+                    oCtx.translate(c * tileSize + tileSize / 2, r * tileSize + tileSize / 2);
+                    
+                    if (transform === 'r90')   oCtx.rotate(90 * Math.PI / 180);
+                    if (transform === 'r180')  oCtx.rotate(180 * Math.PI / 180);
+                    if (transform === 'r270')  oCtx.rotate(270 * Math.PI / 180);
+                    if (transform === 'mx')    oCtx.scale(-1, 1);
+                    if (transform === 'my')    oCtx.scale(1, -1);
+                    if (transform === 'mxy')   oCtx.scale(-1, -1);
+                    if (transform === 'mx90')  { oCtx.scale(-1, 1); oCtx.rotate(90 * Math.PI / 180); }
+                    if (transform === 'my90')  { oCtx.scale(1, -1); oCtx.rotate(90 * Math.PI / 180); }
+                    
+                    oCtx.drawImage(sourceTileImg, -tileSize / 2, -tileSize / 2, tileSize, tileSize);
+                    oCtx.restore();
+                }
+            }
+
+            if (showSubGrid && subDiv > 1) {
+                oCtx.save();
+                oCtx.strokeStyle = "#000000"; 
+                oCtx.lineWidth = 0.4;
+
+                const totalSubCols = cols * subDiv;
+                const totalSubRows = rows * subDiv;
+                const subW = outputCanvas.width / totalSubCols;
+                const subH = outputCanvas.height / totalSubRows;
+
+                for (let c = 0; c <= totalSubCols; c++) {
+                    oCtx.beginPath();
+                    oCtx.moveTo(c * subW, 0);
+                    oCtx.lineTo(c * subW, outputCanvas.height);
+                    oCtx.stroke();
+                }
+
+                for (let r = 0; r <= totalSubRows; r++) {
+                    oCtx.beginPath();
+                    oCtx.moveTo(0, r * subH);
+                    oCtx.lineTo(outputCanvas.width, r * subH);
+                    oCtx.stroke();
+                }
+                oCtx.restore();
+            }
+
+            if (showMainGrid) {
+                oCtx.save();
+                oCtx.strokeStyle = "#000000"; 
+                oCtx.lineWidth = 1;         
+                
+                for (let c = 0; c <= cols; c++) {
+                    oCtx.beginPath();
+                    oCtx.moveTo(c * tileSize, 0);
+                    oCtx.lineTo(c * tileSize, outputCanvas.height);
+                    oCtx.stroke();
+                }
+                
+                for (let r = 0; r <= rows; r++) {
+                    oCtx.beginPath();
+                    oCtx.moveTo(0, r * tileSize);
+                    oCtx.lineTo(outputCanvas.width, r * tileSize);
+                    oCtx.stroke();
+                }
+                oCtx.restore();
+            }
+        };
+    }
+
+    function drawPixelCell(x, y) {
+        const subDiv = parseInt(document.getElementById('subGridDiv').value) || 10;
+        const cellW = 240 / subDiv;
+        const cellH = 240 / subDiv;
+        const col = Math.floor(x / cellW);
+        const row = Math.floor(y / cellH);
+
+        if (col >= 0 && col < subDiv && row >= 0 && row < subDiv) {
+            if (selectedTool === 'eraser') {
+                pixelPaintCtx.clearRect(col * cellW, row * cellH, cellW, cellH);
+            } else if (selectedTool === 'fill') {
+                pixelPaintCtx.fillStyle = document.getElementById('bucketColor').value;
+                pixelPaintCtx.fillRect(col * cellW, row * cellH, cellW, cellH);
+            }
+            updateCompositeCanvas();
+        }
+    }
+
+    function startDrawing(e) {
+        const rect = canvas.getBoundingClientRect();
+        startX = (e.clientX - rect.left) * (240 / rect.width);
+        startY = (e.clientY - rect.top) * (240 / rect.height);
+        
+        const isPixelate = document.getElementById('chkPixelate').checked;
+
+        if (isPixelate) {
+            isDrawing = true;
+            drawPixelCell(startX, startY);
+            return;
+        }
+
+        if (selectedTool === 'fill') {
+            const paintColor = hexToRgb(document.getElementById('bucketColor').value);
+            floodFillOnPaintLayer(Math.floor(startX), Math.floor(startY), paintColor);
+            saveCanvasState(); updateCompositeCanvas(); return;
+        }
+
+        isDrawing = true;
+        canvasSnapshotBase = baseCtx.getImageData(0, 0, 240, 240);
+        canvasSnapshotPixel = pixelPaintCtx.getImageData(0, 0, 240, 240);
+
+        if (selectedTool === 'eraser') {
+            pixelPaintCtx.globalCompositeOperation = 'destination-out';
+            pixelPaintCtx.lineWidth = selectedLineWidth;
+            pixelPaintCtx.lineCap = "round"; pixelPaintCtx.lineJoin = "round";
+            pixelPaintCtx.beginPath(); pixelPaintCtx.moveTo(startX, startY);
+            return;
+        }
+
+        pixelPaintCtx.globalCompositeOperation = 'source-over';
+        pixelPaintCtx.lineWidth = selectedLineWidth;
+        pixelPaintCtx.strokeStyle = document.getElementById('strokeColor').value;
+        pixelPaintCtx.fillStyle = document.getElementById('fillColor').value;
+        pixelPaintCtx.lineCap = "round"; pixelPaintCtx.lineJoin = "round";
+
+        if (selectedTool === 'brush' && document.getElementById('chkUseStroke').checked) {
+            pixelPaintCtx.beginPath(); pixelPaintCtx.moveTo(startX, startY);
+        }
+    }
+
+    function draw(e) {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const currentX = (e.clientX - rect.left) * (240 / rect.width);
+        const currentY = (e.clientY - rect.top) * (240 / rect.height);
+        
+        const isPixelate = document.getElementById('chkPixelate').checked;
+
+        if (isPixelate) {
+            drawPixelCell(currentX, currentY);
+            return;
+        }
+
+        if (selectedTool === 'eraser') {
+            pixelPaintCtx.lineTo(currentX, currentY); pixelPaintCtx.stroke();
+            updateCompositeCanvas();
+            return;
+        }
+
+        const useFill = document.getElementById('chkUseFill').checked;
+        const useStroke = document.getElementById('chkUseStroke').checked;
+
+        if (selectedTool === 'brush') {
+            if (useStroke) { pixelPaintCtx.lineTo(currentX, currentY); pixelPaintCtx.stroke(); }
+        } else if (selectedTool !== 'fill') {
+            pixelPaintCtx.putImageData(canvasSnapshotPixel, 0, 0);
+            pixelPaintCtx.beginPath();
+            let width = currentX - startX; let height = currentY - startY;
+
+            if (isCtrlPressed) {
+                const maxLen = Math.max(Math.abs(width), Math.abs(height));
+                width = width >= 0 ? maxLen : -maxLen; height = height >= 0 ? maxLen : -maxLen;
+            }
+
+            if (selectedTool === 'line') {
+                if (useStroke) { pixelPaintCtx.moveTo(startX, startY); pixelPaintCtx.lineTo(currentX, currentY); pixelPaintCtx.stroke(); }
+            } else if (selectedTool === 'rect') {
+                pixelPaintCtx.rect(startX, startY, width, height);
+                if (useFill) pixelPaintCtx.fill(); if (useStroke) pixelPaintCtx.stroke();
+            } else if (selectedTool === 'circle') {
+                const radius = Math.sqrt(width * width + height * height);
+                pixelPaintCtx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                if (useFill) pixelPaintCtx.fill(); if (useStroke) pixelPaintCtx.stroke();
+            } else if (selectedTool === 'triangle') {
+                pixelPaintCtx.moveTo(startX + width / 2, startY); pixelPaintCtx.lineTo(startX + width, startY + height); pixelPaintCtx.lineTo(startX, startY + height); pixelPaintCtx.closePath();
+                if (useFill) pixelPaintCtx.fill(); if (useStroke) pixelPaintCtx.stroke();
+            }
+        }
+        updateCompositeCanvas();
+    }
+
+    function stopDrawing() { 
+        if (!isDrawing) return; 
+        isDrawing = false; 
+        baseCtx.globalCompositeOperation = 'source-over';
+        pixelPaintCtx.globalCompositeOperation = 'source-over';
+        saveCanvasState(); 
+    }
+
+    function saveCanvasState() {
+        if (historyStep < drawingHistory.length - 1) drawingHistory = drawingHistory.slice(0, historyStep + 1);
+        drawingHistory.push({
+            base: baseCtx.getImageData(0, 0, 240, 240),
+            pixel: pixelPaintCtx.getImageData(0, 0, 240, 240)
+        });
+        historyStep++;
+    }
+
+    function restoreCanvasStep() { 
+        if (historyStep >= 0 && historyStep < drawingHistory.length) { 
+            baseCtx.putImageData(drawingHistory[historyStep].base, 0, 0); 
+            pixelPaintCtx.putImageData(drawingHistory[historyStep].pixel, 0, 0);
+            updateCompositeCanvas(); 
+        } 
+    }
+
+    /* --- System logic for Export Modal & Advanced Image Saving --- */
+    function setupSaveExportModal() {
+        const modal = document.getElementById('saveImageModal');
+        const ppiSelect = document.getElementById('exportPPI');
+        const unitSelect = document.getElementById('exportUnit');
+        const widthInput = document.getElementById('exportWidth');
+        const heightInput = document.getElementById('exportHeight');
+        const resText = document.getElementById('calcResolutionText');
+
+        let defaultPxWidth = 1000;
+        let defaultPxHeight = 1000;
+        let aspectRatio = 1;
+
+        function updateExportFields() {
+            const cols = parseInt(document.getElementById('gridCols').value) || 8;
+            const rows = parseInt(document.getElementById('gridRows').value) || 6;
+            const tileSize = getGridSize();
+
+            defaultPxWidth = cols * tileSize;
+            defaultPxHeight = rows * tileSize;
+            aspectRatio = defaultPxWidth / defaultPxHeight;
+
+            const unit = unitSelect.value;
+            const ppi = parseFloat(ppiSelect.value);
+
+            if (unit === 'px') {
+                widthInput.value = defaultPxWidth;
+                heightInput.value = defaultPxHeight;
+            } else if (unit === 'inch') {
+                widthInput.value = (defaultPxWidth / ppi).toFixed(2);
+                heightInput.value = (defaultPxHeight / ppi).toFixed(2);
+            } else if (unit === 'cm') {
+                widthInput.value = ((defaultPxWidth / ppi) * 2.54).toFixed(2);
+                heightInput.value = ((defaultPxHeight / ppi) * 2.54).toFixed(2);
+            }
+            recalculatePxInfo();
+        }
+
+        function recalculatePxInfo() {
+            const unit = unitSelect.value;
+            const ppi = parseFloat(ppiSelect.value);
+            let w = parseFloat(widthInput.value) || 0;
+            let h = parseFloat(heightInput.value) || 0;
+
+            let finalPxW = w;
+            let finalPxH = h;
+
+            if (unit === 'inch') {
+                finalPxW = Math.round(w * ppi);
+                finalPxH = Math.round(h * ppi);
+            } else if (unit === 'cm') {
+                finalPxW = Math.round((w / 2.54) * ppi);
+                finalPxH = Math.round((h / 2.54) * ppi);
+            }
+
+            resText.textContent = `${finalPxW} x ${finalPxH} px (${ppi} PPI)`;
+        }
+
+        document.getElementById('btnOpenSaveModal').onclick = () => {
+            modal.style.display = 'flex';
+            updateExportFields();
+        };
+
+        const closeModal = () => { modal.style.display = 'none'; };
+        document.getElementById('btnSaveModalClose').onclick = closeModal;
+        document.getElementById('btnCancelSave').onclick = closeModal;
+
+        ppiSelect.onchange = updateExportFields;
+        unitSelect.onchange = updateExportFields;
+
+        widthInput.oninput = () => {
+            let val = parseFloat(widthInput.value);
+            if (!isNaN(val) && val > 0 && aspectRatio > 0) {
+                const calculatedHeight = val / aspectRatio;
+                const unit = unitSelect.value;
+                heightInput.value = (unit === 'px') ? Math.round(calculatedHeight) : parseFloat(calculatedHeight.toFixed(2));
+            }
+            recalculatePxInfo();
+        };
+
+        heightInput.oninput = () => {
+            let val = parseFloat(heightInput.value);
+            if (!isNaN(val) && val > 0 && aspectRatio > 0) {
+                const calculatedWidth = val * aspectRatio;
+                const unit = unitSelect.value;
+                widthInput.value = (unit === 'px') ? Math.round(calculatedWidth) : parseFloat(calculatedWidth.toFixed(2));
+            }
+            recalculatePxInfo();
+        };
+
+        document.getElementById('btnConfirmSaveImage').onclick = () => {
+            const unit = unitSelect.value;
+            const ppi = parseFloat(ppiSelect.value);
+            let w = parseFloat(widthInput.value) || 0;
+            let h = parseFloat(heightInput.value) || 0;
+
+            let finalPxWidth = w;
+            let finalPxHeight = h;
+
+            if (unit === 'inch') {
+                finalPxWidth = Math.round(w * ppi);
+                finalPxHeight = Math.round(h * ppi);
+            } else if (unit === 'cm') {
+                finalPxWidth = Math.round((w / 2.54) * ppi);
+                finalPxHeight = Math.round((h / 2.54) * ppi);
+            }
+
+            saveOutputAsImageCustom(finalPxWidth, finalPxHeight);
+            closeModal();
+        };
+    }
+
+    function saveOutputAsImageCustom(targetWidth, targetHeight) {
+        if(!activePattern) return;
+        const cols = parseInt(document.getElementById('gridCols').value) || 8;
+        const rows = parseInt(document.getElementById('gridRows').value) || 6;
+        const subDiv = parseInt(document.getElementById('subGridDiv').value) || 10;
+
+        const showMainGrid = document.getElementById('chkShowGrid').checked;
+        const showSubGrid = document.getElementById('chkShowSubGrid').checked;
+
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = targetWidth; 
+        exportCanvas.height = targetHeight;
+        
+        const tileSizeX = targetWidth / cols;
+        const tileSizeY = targetHeight / rows;
+
+        const eCtx = exportCanvas.getContext('2d');
+        eCtx.fillStyle = document.getElementById('bgColor').value;
+        eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+        const sourceTileImg = new Image();
+        sourceTileImg.src = canvas.toDataURL();
+        sourceTileImg.onload = function() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const transform = getTransformWithPeriod(activePattern.matrix, r, c);
+                    eCtx.save();
+                    eCtx.translate(c * tileSizeX + tileSizeX / 2, r * tileSizeY + tileSizeY / 2);
+                    if (transform === 'r90')  eCtx.rotate(90 * Math.PI / 180);
+                    if (transform === 'r180') eCtx.rotate(180 * Math.PI / 180);
+                    if (transform === 'r270') eCtx.rotate(270 * Math.PI / 180);
+                    if (transform === 'mx')   eCtx.scale(-1, 1);
+                    if (transform === 'my')   eCtx.scale(1, -1);
+                    if (transform === 'mxy')  eCtx.scale(-1, -1);
+                    if (transform === 'mx90') { eCtx.scale(-1, 1); eCtx.rotate(90 * Math.PI / 180); }
+                    if (transform === 'my90') { eCtx.scale(1, -1); eCtx.rotate(90 * Math.PI / 180); }
+                    eCtx.drawImage(sourceTileImg, -tileSizeX/2, -tileSizeY/2, tileSizeX, tileSizeY);
+                    eCtx.restore();
+                }
+            }
+
+            if (showSubGrid && subDiv > 1) {
+                eCtx.save();
+                eCtx.strokeStyle = "rgba(100, 116, 139, 0.4)";
+                eCtx.lineWidth = Math.max(0.5, targetWidth / 2000);
+
+                const totalSubCols = cols * subDiv;
+                const totalSubRows = rows * subDiv;
+                const subW = exportCanvas.width / totalSubCols;
+                const subH = exportCanvas.height / totalSubRows;
+
+                for (let c = 0; c <= totalSubCols; c++) {
+                    eCtx.beginPath();
+                    eCtx.moveTo(c * subW, 0);
+                    eCtx.lineTo(c * subW, exportCanvas.height);
+                    eCtx.stroke();
+                }
+
+                for (let r = 0; r <= totalSubRows; r++) {
+                    eCtx.beginPath();
+                    eCtx.moveTo(0, r * subH);
+                    eCtx.lineTo(exportCanvas.width, r * subH);
+                    eCtx.stroke();
+                }
+                eCtx.restore();
+            }
+
+            if (showMainGrid) {
+                eCtx.save();
+                eCtx.strokeStyle = "#000000"; 
+                eCtx.lineWidth = Math.max(1, Math.round(targetWidth / 1000 * 1.5));         
+                
+                for (let c = 0; c <= cols; c++) {
+                    eCtx.beginPath();
+                    eCtx.moveTo(c * tileSizeX, 0);
+                    eCtx.lineTo(c * tileSizeX, exportCanvas.height);
+                    eCtx.stroke();
+                }
+                
+                for (let r = 0; r <= rows; r++) {
+                    eCtx.beginPath();
+                    eCtx.moveTo(0, r * tileSizeY);
+                    eCtx.lineTo(exportCanvas.width, r * tileSizeY);
+                    eCtx.stroke();
+                }
+                eCtx.restore();
+            }
+
+            exportCanvas.toBlob(function(blob) {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const filename = `Pattern-${activePattern.title}.png`;
+
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+                if (isMobile) {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.target = '_blank';
+                    document.body.appendChild(a);
+                    
+                    try {
+                        a.click();
+                    } catch (e) {
+                       window.open(url, '_blank');
+                    }
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 2000);
+                } else {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                }
+            }, 'image/png');
+        };
+    }
+
+    window.onload = init;
+</script>
+
+</body>
+</html>
+
